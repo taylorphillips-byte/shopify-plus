@@ -44,7 +44,7 @@
     .section-lbl { font-size: 10px; font-weight: 700; color: var(--lite-t); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 6px; }
     .field { margin-bottom: 9px; }
     .field label { display: block; font-size: 11px; font-weight: 600; color: var(--mid-t); margin-bottom: 3px; }
-    .field input {
+    .field input[type="text"], .field input:not([type]) {
       width: 100%; border: 1px solid var(--border); border-radius: 6px;
       padding: 7px 9px; font-size: 12.5px; color: var(--text);
       transition: border-color .15s;
@@ -52,6 +52,30 @@
     .field input:focus { outline: none; border-color: var(--green); box-shadow: 0 0 0 2px rgba(0,128,96,.12); }
     .panel-hr { height: 1px; background: var(--border); }
     .panel-tip { font-size: 11px; color: var(--lite-t); line-height: 1.5; }
+
+    /* ── Section Manager ── */
+    #section-list { display: flex; flex-direction: column; gap: 3px; }
+    .sec-item {
+      display: flex; align-items: center; gap: 7px;
+      padding: 6px 7px; border-radius: 6px;
+      border: 1px solid transparent;
+      cursor: grab; user-select: none;
+      transition: background .1s, border-color .1s;
+      font-size: 11.5px; color: var(--text);
+    }
+    .sec-item:hover { background: #F9FAFB; border-color: var(--border); }
+    .sec-item.dragging { opacity: .4; }
+    .sec-item.drag-over { border-color: var(--green); background: var(--light); }
+    .drag-handle {
+      color: var(--lite-t); font-size: 13px; line-height: 1;
+      cursor: grab; flex-shrink: 0;
+    }
+    .sec-item input[type="checkbox"] {
+      width: 14px; height: 14px; accent-color: var(--green);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .sec-item-label { flex: 1; font-size: 11.5px; color: var(--text); cursor: grab; }
+    .sec-item.hidden-sec .sec-item-label { color: var(--lite-t); text-decoration: line-through; }
 
     /* ── Toolbar ── */
     .toolbar {
@@ -67,12 +91,6 @@
       font-size: 10.5px; background: #FEF3C7; color: #92400E;
       border: 1px solid #FDE68A; padding: 2px 8px; border-radius: 10px; font-weight: 600;
     }
-    .btn-print {
-      background: var(--dark); color: #fff; border: none; border-radius: 7px;
-      padding: 8px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .btn-print:hover { background: #003830; }
     .btn-share {
       background: var(--green); color: #fff; border: none; border-radius: 7px;
       padding: 8px 18px; font-size: 12.5px; font-weight: 700; cursor: pointer;
@@ -116,8 +134,6 @@
       padding: 2px 0; letter-spacing: .2px;
     }
     .header-rep-input::placeholder { color: rgba(255,255,255,.3); }
-
-    /* ── Store name print span (hidden on screen, visible in print) ── */
     .header-store-print { display: none; color: white; font-size: 13px; font-weight: 700; text-align: right; margin-top: 7px; letter-spacing: .2px; }
     .header-rep-print   { display: none; color: rgba(255,255,255,.65); font-size: 11.5px; text-align: right; margin-top: 3px; }
 
@@ -137,8 +153,13 @@
     .rate-val { font-size: 13px; font-weight: 800; color: var(--dark); }
     .rates-note { font-size: 10.5px; color: var(--lite-t); font-style: italic; margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--border); }
 
+    /* Section wrappers */
+    .sec-wrap { }
+    .sec-wrap .doc-hr { height: 1px; background: var(--border); margin: 18px 0; }
+    .sec-wrap.sec-hidden { display: none; }
+
     /* Feature */
-    .feature { border-left: 3px solid var(--green); padding-left: 18px; margin-bottom: 22px; page-break-inside: avoid; }
+    .feature { border-left: 3px solid var(--green); padding-left: 18px; margin-bottom: 0; page-break-inside: avoid; }
     .feat-head { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
     .check {
       background: var(--green); color: #fff;
@@ -164,10 +185,8 @@
     .stat-num { font-size: 15px; font-weight: 900; color: var(--green); line-height: 1.2; min-height: 20px; }
     .stat-num.red { color: var(--red); }
     .stat-lbl { font-size: 9.5px; color: var(--lite-t); margin-top: 2px; }
-
     .perf-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-top: 8px; }
 
-    .doc-hr { height: 1px; background: var(--border); margin: 18px 0; }
     .doc-footer { background: var(--dark); color: rgba(255,255,255,.7); text-align: center; padding: 15px; font-size: 11px; }
 
     /* ── Print ── */
@@ -183,6 +202,7 @@
       .feat-head  { break-after: avoid; page-break-after: avoid; }
       .rates-card { break-inside: avoid; page-break-inside: avoid; }
       .sub-box    { break-inside: avoid; page-break-inside: avoid; }
+      .sec-hidden { display: none !important; }
       [contenteditable], [contenteditable]:hover, [contenteditable]:focus { outline: none !important; box-shadow: none !important; }
     }
   </style>
@@ -195,32 +215,115 @@
 
   <div>
     <div class="section-lbl">Shopify Plus Rates</div>
-    <div class="field"><label>Online</label><input id="r-online" placeholder="e.g. 2.25% + $0.30" oninput="set('rate-online',this.value)"></div>
-    <div class="field"><label>In Person</label><input id="r-inperson" placeholder="e.g. 2.30% + $0.10" oninput="set('rate-inperson',this.value)"></div>
-    <div class="field"><label>3rd Party Processors</label><input id="r-3p" placeholder="e.g. 0.20% Fee" oninput="set('rate-3p',this.value)"></div>
-    <div class="field"><label>Shop Pay Installments</label><input id="r-spi" placeholder="e.g. 5.00% + $0.30" oninput="set('rate-spi',this.value)"></div>
-    <div class="field"><label>POS Pro</label><input id="r-pos" placeholder="Free (20 locations)" oninput="set('rate-pos',this.value)"></div>
+    <div class="field"><label>Online</label><input oninput="set('rate-online',this.value)" placeholder="e.g. 2.25% + $0.30"></div>
+    <div class="field"><label>In Person</label><input oninput="set('rate-inperson',this.value)" placeholder="e.g. 2.30% + $0.10"></div>
+    <div class="field"><label>3rd Party Processors</label><input oninput="set('rate-3p',this.value)" placeholder="e.g. 0.20% Fee"></div>
+    <div class="field"><label>Shop Pay Installments</label><input oninput="set('rate-spi',this.value)" placeholder="e.g. 5.00% + $0.30"></div>
+    <div class="field"><label>POS Pro</label><input oninput="set('rate-pos',this.value)" placeholder="Free (20 locations)"></div>
   </div>
 
   <div class="panel-hr"></div>
 
   <div>
     <div class="section-lbl">L365 Conversion Data</div>
-    <div class="field"><label>Sessions</label><input id="s-sessions" placeholder="e.g. 425,728" oninput="setNum('stat-sessions',this.value)"></div>
-    <div class="field"><label>Reached Checkout</label><input id="s-reach" placeholder="e.g. 17,034" oninput="setNum('stat-reach',this.value)"></div>
-    <div class="field"><label>Completed Checkout</label><input id="s-orders" placeholder="e.g. 12,044" oninput="setNum('stat-orders',this.value)"></div>
-    <div class="field"><label>Abandoned Cart Value</label><input id="s-abandoned" placeholder="e.g. $249,500" oninput="set('stat-abandoned',this.value)"></div>
+    <div class="field"><label>Sessions</label><input oninput="setNum('stat-sessions',this.value)" placeholder="e.g. 425,728"></div>
+    <div class="field"><label>Reached Checkout</label><input oninput="setNum('stat-reach',this.value)" placeholder="e.g. 17,034"></div>
+    <div class="field"><label>Completed Checkout</label><input oninput="setNum('stat-orders',this.value)" placeholder="e.g. 12,044"></div>
+    <div class="field"><label>Abandoned Cart Value</label><input oninput="set('stat-abandoned',this.value)" placeholder="e.g. $249,500"></div>
   </div>
 
   <div class="panel-hr"></div>
 
   <div>
     <div class="section-lbl">Store Details</div>
-    <div class="field"><label>Marketing Spend / Month</label><input id="s-mktg" placeholder="e.g. $3,500/mo" oninput="updateMktg(this.value)"></div>
+    <div class="field"><label>Marketing Spend / Month</label><input oninput="updateMktg(this.value)" placeholder="e.g. $3,500/mo"></div>
   </div>
 
   <div class="panel-hr"></div>
-  <div class="panel-tip">Click any text in the document to edit it directly. Use "Export for Merchant" to download a clean, shareable version.</div>
+
+  <div>
+    <div class="section-lbl">Sections — drag to reorder · uncheck to hide</div>
+    <div id="section-list">
+      <div class="sec-item" draggable="true" data-key="checkout">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('checkout',this.checked)">
+        <span class="sec-item-label">Customized Checkout</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="audiences">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('audiences',this.checked)">
+        <span class="sec-item-label">Shopify Audiences</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="b2b">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('b2b',this.checked)">
+        <span class="sec-item-label">B2B Functionality</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="pos">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('pos',this.checked)">
+        <span class="sec-item-label">Free POS Pro</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="expansion">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('expansion',this.checked)">
+        <span class="sec-item-label">Expansion Stores</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="flow">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('flow',this.checked)">
+        <span class="sec-item-label">Shopify Flow</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="devperf">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('devperf',this.checked)">
+        <span class="sec-item-label">Custom Dev &amp; Performance</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="launchpad">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('launchpad',this.checked)">
+        <span class="sec-item-label">Launchpad</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="combined">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('combined',this.checked)">
+        <span class="sec-item-label">Combined Listings</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="botprotect">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('botprotect',this.checked)">
+        <span class="sec-item-label">Bot Protection</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="shipping">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('shipping',this.checked)">
+        <span class="sec-item-label">Shopify Shipping</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="tax">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('tax',this.checked)">
+        <span class="sec-item-label">Shopify Tax</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="support">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('support',this.checked)">
+        <span class="sec-item-label">Priority Support 24/7</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="academy">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('academy',this.checked)">
+        <span class="sec-item-label">Plus Academy</span>
+      </div>
+      <div class="sec-item" draggable="true" data-key="additional">
+        <span class="drag-handle">⠿</span>
+        <input type="checkbox" checked onchange="toggleSection('additional',this.checked)">
+        <span class="sec-item-label">Additional Benefits</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-hr"></div>
+  <div class="panel-tip">Drag sections to reorder · uncheck to hide · click any doc text to edit.</div>
 </aside>
 
 <!-- ═══════════════ TOOLBAR ═══════════════ -->
@@ -276,268 +379,273 @@
       <div class="rates-note" contenteditable="true">Rates shown are standard Plus rates. Your merchant's negotiated rates may vary — update the fields in the left panel or click any value above to edit.</div>
     </div>
 
-    <!-- Customized Checkout -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Customized Checkout</div></div>
-      <div class="feat-body">
-        <div class="sub-box">
-          <div class="sub-title" contenteditable="true">Increase Conversion</div>
-          <p contenteditable="true">Trust Badges · Reviews · Shipping &amp; Return Policies · Free Gifts · Rewards Program · Bundles · Discounted Rates on Orders Above X</p>
-          <div class="badges"><span class="badge" contenteditable="true">📈 6–9% conversion increase on average</span></div>
-        </div>
-        <div class="sub-box">
-          <div class="sub-title" contenteditable="true">Increase AOV</div>
-          <p contenteditable="true">Upsells · Add-Ons · Subscribe &amp; Save · Warranty Protection</p>
-          <div class="badges"><span class="badge" contenteditable="true">💰 9–12% AOV increase on average</span></div>
-        </div>
-        <div class="sub-box">
-          <div class="sub-title" contenteditable="true">Checkout Example</div>
-          <p contenteditable="true">A customer adds a jacket to their cart and proceeds to checkout. At checkout they are prompted to add matching gloves at a discounted bundle rate, offered a warranty protection plan, and given the option to subscribe &amp; save for 10% off future orders — all without leaving the checkout flow.</p>
-        </div>
-        <p style="margin-top:8px" contenteditable="true">Free access to <strong>ReBuy</strong> and <strong>AfterSell</strong> for checkout customization on Plus.</p>
+    <!-- ═══ SECTIONS CONTAINER ═══ -->
+    <div id="sections-container">
 
-        <div class="sub-box" style="margin-top:9px">
-          <div class="sub-title" contenteditable="true">L365 Conversion Insights</div>
-          <div class="l365-grid">
-            <div class="stat-box"><div class="stat-num" id="stat-sessions" contenteditable="true">–</div><div class="stat-lbl">Sessions</div></div>
-            <div class="stat-box"><div class="stat-num" id="stat-reach" contenteditable="true">–</div><div class="stat-lbl">Reached Checkout</div></div>
-            <div class="stat-box"><div class="stat-num" id="stat-orders" contenteditable="true">–</div><div class="stat-lbl">Completed Checkout</div></div>
-            <div class="stat-box"><div class="stat-num red" id="stat-abandoned" contenteditable="true">–</div><div class="stat-lbl">Abandoned Cart Opportunity</div></div>
+      <div class="sec-wrap" data-key="checkout">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Customized Checkout</div></div>
+          <div class="feat-body">
+            <div class="sub-box">
+              <div class="sub-title" contenteditable="true">Increase Conversion</div>
+              <p contenteditable="true">Trust Badges · Reviews · Shipping &amp; Return Policies · Free Gifts · Rewards Program · Bundles · Discounted Rates on Orders Above X</p>
+              <div class="badges"><span class="badge" contenteditable="true">📈 6–9% conversion increase on average</span></div>
+            </div>
+            <div class="sub-box">
+              <div class="sub-title" contenteditable="true">Increase AOV</div>
+              <p contenteditable="true">Upsells · Add-Ons · Subscribe &amp; Save · Warranty Protection</p>
+              <div class="badges"><span class="badge" contenteditable="true">💰 9–12% AOV increase on average</span></div>
+            </div>
+            <div class="sub-box">
+              <div class="sub-title" contenteditable="true">Checkout Example</div>
+              <p contenteditable="true">A customer adds a jacket to their cart and proceeds to checkout. At checkout they are prompted to add matching gloves at a discounted bundle rate, offered a warranty protection plan, and given the option to subscribe &amp; save for 10% off future orders — all without leaving the checkout flow.</p>
+            </div>
+            <p style="margin-top:8px" contenteditable="true">Free access to <strong>ReBuy</strong> and <strong>AfterSell</strong> for checkout customization on Plus.</p>
+            <div class="sub-box" style="margin-top:9px">
+              <div class="sub-title" contenteditable="true">L365 Conversion Insights</div>
+              <div class="l365-grid">
+                <div class="stat-box"><div class="stat-num" id="stat-sessions" contenteditable="true">–</div><div class="stat-lbl">Sessions</div></div>
+                <div class="stat-box"><div class="stat-num" id="stat-reach" contenteditable="true">–</div><div class="stat-lbl">Reached Checkout</div></div>
+                <div class="stat-box"><div class="stat-num" id="stat-orders" contenteditable="true">–</div><div class="stat-lbl">Completed Checkout</div></div>
+                <div class="stat-box"><div class="stat-num red" id="stat-abandoned" contenteditable="true">–</div><div class="stat-lbl">Abandoned Cart Opportunity</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="audiences">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div>
+            <div>
+              <div class="feat-title" contenteditable="true">Shopify Audiences</div>
+              <div class="feat-note" contenteditable="true" id="doc-mktg">Currently spending on marketing — reduce ad spend with Audiences</div>
+            </div>
+          </div>
+          <div class="feat-body">
+            <p contenteditable="true">Exclusive to Shopify Plus merchants on Shopify Payments (US &amp; Canada). Data-driven audience lists that improve ad targeting and reduce customer acquisition costs.</p>
+            <ul contenteditable="true">
+              <li>Up to <strong>50% reduction</strong> in customer acquisition costs</li>
+              <li>Improved ad performance &amp; enhanced retargeting on Meta, Google, TikTok, Pinterest &amp; more</li>
+              <li>Privacy-compliant targeting powered by Shopify's buyer network</li>
+            </ul>
+            <div class="badges" style="margin-top:7px">
+              <span class="badge"><a href="https://www.shopify.com/case-studies/happy-hippo" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Happy Hippo: 4X ROAS · 86% new customers ↗</a></span>
+              <span class="badge"><a href="https://www.shopify.com/case-studies/blenderbottle" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">BlenderBottle: 6X ROAS ↗</a></span>
+              <span class="badge"><a href="https://www.shopify.com/case-studies/simkhai" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">SIMKHAI: 6X ROAS · 54% lower CPA ↗</a></span>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="b2b">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">B2B Functionality</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Run wholesale and DTC on a single platform. Companies &amp; Customers, Catalogs &amp; Pricing, Checkout UI, Storefront API, Draft Order API.</p>
+            <div class="badges" style="margin-top:7px">
+              <span class="badge"><a href="https://www.shopify.com/case-studies/amr-hair-and-beauty" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">AMR Hair &amp; Beauty: 200% sales increase ↗</a></span>
+              <span class="badge"><a href="https://www.shopify.com/case-studies/who-is-elijah" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">WHO IS ELIJAH: 50% intl. sales increase ↗</a></span>
+              <span class="badge"><a href="https://www.shopify.com/cz/case-studies/kulani-kinis" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Kulani Kinis: 300% B2B revenue increase ↗</a></span>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="pos">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Free POS Pro Subscription(s)</div></div>
+          <div class="feat-body">
+            <ul contenteditable="true">
+              <li>First <strong>20 locations FREE</strong> (or 200 with Shopify Payments)</li>
+              <li>Unlimited POS Staff</li>
+              <li>Returns &amp; Exchanges at any location</li>
+              <li>Retail Inventory Management + Reporting</li>
+              <li>Omnichannel: Trade Shows · Pop-Ups · Conferences · Brick &amp; Mortar</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="expansion">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Expansion Stores</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Additional .myshopify.com stores under the same org &amp; contract. <strong>1 Main Store + up to 9 Expansion Stores.</strong></p>
+            <ul contenteditable="true">
+              <li><strong>International</strong> — same brand in a different language, region, or currency</li>
+              <li><strong>Product Line</strong> — same brand, different products (e.g. tents → coolers)</li>
+              <li><strong>B2B / Wholesale</strong> — wholesale store with dedicated pricing and catalogs</li>
+              <li><strong>Employee / VIP</strong> — member-only or employee swag stores</li>
+              <li><strong>Physical Retail</strong> — 100% in-store, no online transactions</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="flow">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Flow</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Extensive automation access with Plus — custom triggers, actions, and integrations to eliminate manual work.</p>
+            <div class="badges" style="margin-top:6px">
+              <span class="badge" contenteditable="true">Order Management</span>
+              <span class="badge" contenteditable="true">Marketing Automation</span>
+              <span class="badge" contenteditable="true">Inventory Management</span>
+              <span class="badge" contenteditable="true">B2B Features</span>
+              <span class="badge" contenteditable="true">Shipping Profiles</span>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="devperf">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Custom Development &amp; Better Site Performance</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">API Rate-Limit increased <strong>5X</strong> — all systems and 3rd-party apps communicate 5X faster.</p>
+            <div class="perf-grid">
+              <div class="stat-box"><div class="stat-num">1,000</div><div class="stat-lbl">Rate Limit pts/sec</div></div>
+              <div class="stat-box"><div class="stat-num">54,600</div><div class="stat-lbl">Payments App pts/sec</div></div>
+              <div class="stat-box"><div class="stat-num">120</div><div class="stat-lbl">Metaobject Definitions</div></div>
+              <div class="stat-box"><div class="stat-num">128K</div><div class="stat-lbl">Metaobject Entries</div></div>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="launchpad">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Launchpad <span style="font-size:10px;font-weight:500;color:var(--lite-t)">(Plus Exclusive)</span></div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Manages product launches, events, promotions, and sales campaigns seamlessly.</p>
+            <ul contenteditable="true">
+              <li>Pre-schedule theme changes, discounts, and banners</li>
+              <li>Intuitive interface for limited-time events</li>
+              <li>Publish and revert campaign assets on a precise schedule</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="combined">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Combined Listings <span style="font-size:10px;font-weight:500;color:var(--lite-t)">(Plus Exclusive)</span></div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Group separate products into a single enhanced listing (color, model, dimension, etc.).</p>
+            <ul contenteditable="true">
+              <li>Distinct, descriptive URLs per variation — <strong>SEO boost</strong></li>
+              <li>Unique titles, descriptions, and rich media per variation</li>
+              <li>Cohesive buyer experience from a single product details page</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="botprotect">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Bot Protection</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Prevent auto-checkout bots from dominating inventory during flash sales and limited drops.</p>
+            <ul contenteditable="true">
+              <li>Block known bots from completing checkout</li>
+              <li>Slow down automated purchasing systems</li>
+              <li>Checkpoint challenges to verify human buyers</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="shipping">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Shipping</div></div>
+          <div class="feat-body">
+            <ul contenteditable="true">
+              <li>Discounted rates up to <strong>88%</strong></li>
+              <li>Carrier-calculated shipping</li>
+              <li>Custom Shipping Discounts + Functions</li>
+              <li>Automatic shipping insurance up to $200</li>
+              <li>Multiple shipping profiles for different product categories</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="tax">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Tax</div></div>
+          <div class="feat-body">
+            <ul contenteditable="true">
+              <li>First <strong>$100K free</strong>, 0.25% after</li>
+              <li>Avalara AvaTax Integration</li>
+              <li>Advanced Tax Reporting</li>
+              <li>VAT Number Validation</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="support">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Priority Support 24/7</div></div>
+          <div class="feat-body">
+            <p contenteditable="true">Growth and technical support by phone, email, or live chat — exclusively for Plus Merchants.</p>
+            <div class="badges" style="margin-top:6px">
+              <span class="badge" contenteditable="true">Acquisition</span>
+              <span class="badge" contenteditable="true">Retention</span>
+              <span class="badge" contenteditable="true">Conversion</span>
+              <span class="badge" contenteditable="true">Business Operations</span>
+              <span class="badge" contenteditable="true">Technical Integrations</span>
+              <span class="badge" contenteditable="true">Branding</span>
+            </div>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="academy">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Plus Academy</div></div>
+          <div class="feat-body">
+            <ul contenteditable="true">
+              <li><strong>In-Depth Courses</strong> — comprehensive learning paths</li>
+              <li><strong>Live Online Workshops</strong> — taught by leading industry experts</li>
+              <li><strong>Short-Form Lessons</strong> — practical tips in under 30 minutes</li>
+            </ul>
+          </div>
+        </div>
+        <div class="doc-hr"></div>
+      </div>
+
+      <div class="sec-wrap" data-key="additional">
+        <div class="feature">
+          <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Additional Benefits</div></div>
+          <div class="feat-body">
+            <div class="badges">
+              <span class="badge" contenteditable="true">Unlimited Staff Accounts</span>
+              <span class="badge" contenteditable="true">Feature Test Drives</span>
+              <span class="badge" contenteditable="true">Custom User Groups</span>
+              <span class="badge" contenteditable="true">Advanced Coding &amp; RFPs</span>
+              <span class="badge" contenteditable="true">Shopify Scripts &amp; Functions</span>
+              <span class="badge" contenteditable="true">Fraud Analysis</span>
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="doc-hr"></div>
-
-    <!-- Audiences -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div>
-        <div>
-          <div class="feat-title" contenteditable="true">Shopify Audiences</div>
-          <div class="feat-note" contenteditable="true" id="doc-mktg">Currently spending on marketing — reduce ad spend with Audiences</div>
-        </div>
-      </div>
-      <div class="feat-body">
-        <p contenteditable="true">Exclusive to Shopify Plus merchants on Shopify Payments (US &amp; Canada). Data-driven audience lists that improve ad targeting and reduce customer acquisition costs.</p>
-        <ul contenteditable="true">
-          <li>Up to <strong>50% reduction</strong> in customer acquisition costs</li>
-          <li>Improved ad performance &amp; enhanced retargeting on Meta, Google, TikTok, Pinterest &amp; more</li>
-          <li>Privacy-compliant targeting powered by Shopify's buyer network</li>
-        </ul>
-        <div class="badges" style="margin-top:7px">
-          <span class="badge"><a href="https://www.shopify.com/case-studies/happy-hippo" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Happy Hippo: 4X ROAS · 86% new customers ↗</a></span>
-          <span class="badge"><a href="https://www.shopify.com/case-studies/blenderbottle" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">BlenderBottle: 6X ROAS ↗</a></span>
-          <span class="badge"><a href="https://www.shopify.com/case-studies/simkhai" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">SIMKHAI: 6X ROAS · 54% lower CPA ↗</a></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- B2B -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">B2B Functionality</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Run wholesale and DTC on a single platform. Companies &amp; Customers, Catalogs &amp; Pricing, Checkout UI, Storefront API, Draft Order API.</p>
-        <div class="badges" style="margin-top:7px">
-          <span class="badge"><a href="https://www.shopify.com/case-studies/amr-hair-and-beauty" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">AMR Hair &amp; Beauty: 200% sales increase ↗</a></span>
-          <span class="badge"><a href="https://www.shopify.com/case-studies/who-is-elijah" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">WHO IS ELIJAH: 50% intl. sales increase ↗</a></span>
-          <span class="badge"><a href="https://www.shopify.com/cz/case-studies/kulani-kinis" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;">Kulani Kinis: 300% B2B revenue increase ↗</a></span>
-        </div>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- POS Pro -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Free POS Pro Subscription(s)</div></div>
-      <div class="feat-body">
-        <ul contenteditable="true">
-          <li>First <strong>20 locations FREE</strong> (or 200 with Shopify Payments)</li>
-          <li>Unlimited POS Staff</li>
-          <li>Returns &amp; Exchanges at any location</li>
-          <li>Retail Inventory Management + Reporting</li>
-          <li>Omnichannel: Trade Shows · Pop-Ups · Conferences · Brick &amp; Mortar</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Expansion Stores -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Expansion Stores</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Additional .myshopify.com stores under the same org &amp; contract. <strong>1 Main Store + up to 9 Expansion Stores.</strong></p>
-        <ul contenteditable="true">
-          <li><strong>International</strong> — same brand in a different language, region, or currency</li>
-          <li><strong>Product Line</strong> — same brand, different products (e.g. tents → coolers)</li>
-          <li><strong>B2B / Wholesale</strong> — wholesale store with dedicated pricing and catalogs</li>
-          <li><strong>Employee / VIP</strong> — member-only or employee swag stores</li>
-          <li><strong>Physical Retail</strong> — 100% in-store, no online transactions</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Flow -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Flow</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Extensive automation access with Plus — custom triggers, actions, and integrations to eliminate manual work.</p>
-        <div class="badges" style="margin-top:6px">
-          <span class="badge" contenteditable="true">Order Management</span>
-          <span class="badge" contenteditable="true">Marketing Automation</span>
-          <span class="badge" contenteditable="true">Inventory Management</span>
-          <span class="badge" contenteditable="true">B2B Features</span>
-          <span class="badge" contenteditable="true">Shipping Profiles</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Custom Dev -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Custom Development &amp; Better Site Performance</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">API Rate-Limit increased <strong>5X</strong> — all systems and 3rd-party apps communicate 5X faster.</p>
-        <div class="perf-grid">
-          <div class="stat-box"><div class="stat-num">1,000</div><div class="stat-lbl">Rate Limit pts/sec</div></div>
-          <div class="stat-box"><div class="stat-num">54,600</div><div class="stat-lbl">Payments App pts/sec</div></div>
-          <div class="stat-box"><div class="stat-num">120</div><div class="stat-lbl">Metaobject Definitions</div></div>
-          <div class="stat-box"><div class="stat-num">128K</div><div class="stat-lbl">Metaobject Entries</div></div>
-        </div>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Launchpad -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Launchpad <span style="font-size:10px;font-weight:500;color:var(--lite-t)">(Plus Exclusive)</span></div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Manages product launches, events, promotions, and sales campaigns seamlessly.</p>
-        <ul contenteditable="true">
-          <li>Pre-schedule theme changes, discounts, and banners</li>
-          <li>Intuitive interface for limited-time events</li>
-          <li>Publish and revert campaign assets on a precise schedule</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Combined Listings -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Combined Listings <span style="font-size:10px;font-weight:500;color:var(--lite-t)">(Plus Exclusive)</span></div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Group separate products into a single enhanced listing (color, model, dimension, etc.).</p>
-        <ul contenteditable="true">
-          <li>Distinct, descriptive URLs per variation — <strong>SEO boost</strong></li>
-          <li>Unique titles, descriptions, and rich media per variation</li>
-          <li>Cohesive buyer experience from a single product details page</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Bot Protection -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Bot Protection</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Prevent auto-checkout bots from dominating inventory during flash sales and limited drops.</p>
-        <ul contenteditable="true">
-          <li>Block known bots from completing checkout</li>
-          <li>Slow down automated purchasing systems</li>
-          <li>Checkpoint challenges to verify human buyers</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Shipping -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Shipping</div></div>
-      <div class="feat-body">
-        <ul contenteditable="true">
-          <li>Discounted rates up to <strong>88%</strong></li>
-          <li>Carrier-calculated shipping</li>
-          <li>Custom Shipping Discounts + Functions</li>
-          <li>Automatic shipping insurance up to $200</li>
-          <li>Multiple shipping profiles for different product categories</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Tax -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Tax</div></div>
-      <div class="feat-body">
-        <ul contenteditable="true">
-          <li>First <strong>$100K free</strong>, 0.25% after</li>
-          <li>Avalara AvaTax Integration</li>
-          <li>Advanced Tax Reporting</li>
-          <li>VAT Number Validation</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Support -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Priority Support 24/7</div></div>
-      <div class="feat-body">
-        <p contenteditable="true">Growth and technical support by phone, email, or live chat — exclusively for Plus Merchants.</p>
-        <div class="badges" style="margin-top:6px">
-          <span class="badge" contenteditable="true">Acquisition</span>
-          <span class="badge" contenteditable="true">Retention</span>
-          <span class="badge" contenteditable="true">Conversion</span>
-          <span class="badge" contenteditable="true">Business Operations</span>
-          <span class="badge" contenteditable="true">Technical Integrations</span>
-          <span class="badge" contenteditable="true">Branding</span>
-        </div>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Academy -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Shopify Plus Academy</div></div>
-      <div class="feat-body">
-        <ul contenteditable="true">
-          <li><strong>In-Depth Courses</strong> — comprehensive learning paths</li>
-          <li><strong>Live Online Workshops</strong> — taught by leading industry experts</li>
-          <li><strong>Short-Form Lessons</strong> — practical tips in under 30 minutes</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="doc-hr"></div>
-
-    <!-- Additional -->
-    <div class="feature">
-      <div class="feat-head"><div class="check">✓</div><div class="feat-title" contenteditable="true">Additional Benefits</div></div>
-      <div class="feat-body">
-        <div class="badges">
-          <span class="badge" contenteditable="true">Unlimited Staff Accounts</span>
-          <span class="badge" contenteditable="true">Feature Test Drives</span>
-          <span class="badge" contenteditable="true">Custom User Groups</span>
-          <span class="badge" contenteditable="true">Advanced Coding &amp; RFPs</span>
-          <span class="badge" contenteditable="true">Shopify Scripts &amp; Functions</span>
-          <span class="badge" contenteditable="true">Fraud Analysis</span>
-        </div>
-      </div>
-    </div>
+    </div><!-- /sections-container -->
 
   </div>
 
@@ -547,14 +655,88 @@
 </div>
 
 <script>
-  // Pre-fill rep name print span on load
   document.getElementById('header-rep-print').textContent = document.getElementById('header-rep').value;
 
+  // ── Divider management ──
+  function updateDividers() {
+    const wraps = [...document.querySelectorAll('#sections-container .sec-wrap')];
+    const visible = wraps.filter(w => !w.classList.contains('sec-hidden'));
+    wraps.forEach(w => {
+      const hr = w.querySelector('.doc-hr');
+      if (!hr) return;
+      // Hide hr on the last visible section
+      hr.style.display = (w === visible[visible.length - 1]) ? 'none' : '';
+    });
+  }
+  updateDividers();
+
+  // ── Toggle visibility ──
+  function toggleSection(key, visible) {
+    const docWrap = document.querySelector(`#sections-container .sec-wrap[data-key="${key}"]`);
+    const panelItem = document.querySelector(`#section-list .sec-item[data-key="${key}"]`);
+    if (docWrap) docWrap.classList.toggle('sec-hidden', !visible);
+    if (panelItem) panelItem.classList.toggle('hidden-sec', !visible);
+    updateDividers();
+  }
+
+  // ── Drag & Drop ──
+  let dragSrcPanel = null;
+  let dragSrcDoc   = null;
+
+  document.querySelectorAll('.sec-item').forEach(item => {
+    item.addEventListener('dragstart', e => {
+      dragSrcPanel = item;
+      dragSrcDoc   = document.querySelector(`#sections-container .sec-wrap[data-key="${item.dataset.key}"]`);
+      item.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    item.addEventListener('dragend', () => {
+      item.classList.remove('dragging');
+      document.querySelectorAll('.sec-item').forEach(i => i.classList.remove('drag-over'));
+      updateDividers();
+    });
+    item.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      document.querySelectorAll('.sec-item').forEach(i => i.classList.remove('drag-over'));
+      if (item !== dragSrcPanel) item.classList.add('drag-over');
+    });
+    item.addEventListener('drop', e => {
+      e.preventDefault();
+      if (!dragSrcPanel || item === dragSrcPanel) return;
+      item.classList.remove('drag-over');
+
+      const panelList = document.getElementById('section-list');
+      const docContainer = document.getElementById('sections-container');
+
+      // Find positions
+      const allPanel = [...panelList.querySelectorAll('.sec-item')];
+      const srcIdx = allPanel.indexOf(dragSrcPanel);
+      const tgtIdx = allPanel.indexOf(item);
+
+      // Reorder panel
+      if (srcIdx < tgtIdx) {
+        panelList.insertBefore(dragSrcPanel, item.nextSibling);
+      } else {
+        panelList.insertBefore(dragSrcPanel, item);
+      }
+
+      // Reorder doc sections to match panel order
+      const newOrder = [...panelList.querySelectorAll('.sec-item')].map(i => i.dataset.key);
+      newOrder.forEach(key => {
+        const wrap = docContainer.querySelector(`.sec-wrap[data-key="${key}"]`);
+        if (wrap) docContainer.appendChild(wrap);
+      });
+
+      updateDividers();
+    });
+  });
+
+  // ── Panel inputs ──
   function set(id, val) {
     const el = document.getElementById(id);
     if (el) el.textContent = val || '–';
   }
-
   function setNum(id, val) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -567,7 +749,6 @@
       el.textContent = val;
     }
   }
-
   function updateMktg(val) {
     const el = document.getElementById('doc-mktg');
     if (el) el.textContent = val
@@ -575,36 +756,37 @@
       : 'Currently spending on marketing — reduce ad spend with Audiences';
   }
 
+  // ── Export ──
   function exportMerchantPage() {
-    const storeName  = document.getElementById('header-store').value.trim();
-    const repName    = document.getElementById('header-rep').value.trim();
-
+    const storeName = document.getElementById('header-store').value.trim();
+    const repName   = document.getElementById('header-rep').value.trim();
     const clone = document.documentElement.cloneNode(true);
 
-    // Bake in store name and rep name
     const printStore = clone.querySelector('#header-store-print');
     const printRep   = clone.querySelector('#header-rep-print');
-    const storeInput = clone.querySelector('#header-store');
-    const repInput   = clone.querySelector('#header-rep');
-
     if (printStore) { printStore.textContent = storeName; printStore.style.display = storeName ? 'block' : 'none'; }
-    if (printRep)   { printRep.textContent = repName;     printRep.style.display   = 'block'; }
-    if (storeInput) storeInput.remove();
-    if (repInput)   repInput.remove();
+    if (printRep)   { printRep.textContent = repName; printRep.style.display = 'block'; }
+    clone.querySelector('#header-store')?.remove();
+    clone.querySelector('#header-rep')?.remove();
+
+    // Remove hidden sections from export
+    clone.querySelectorAll('.sec-wrap.sec-hidden').forEach(el => el.remove());
 
     // Remove editing UI
-    ['#share-modal', '.panel', '.toolbar', '.edit-badge'].forEach(sel => {
-      const el = clone.querySelector(sel); if (el) el.remove();
-    });
-
-    // Remove all contenteditable attributes
+    ['.panel', '.toolbar', '.edit-badge'].forEach(sel => clone.querySelector(sel)?.remove());
     clone.querySelectorAll('[contenteditable]').forEach(el => el.removeAttribute('contenteditable'));
 
-    // Fix main layout (no sidebar)
+    // Fix main layout
     const main = clone.querySelector('.main');
     if (main) { main.style.marginLeft = '0'; main.style.paddingTop = '28px'; }
 
-    // Remove scripts
+    // Fix last divider
+    const visibleWraps = [...clone.querySelectorAll('#sections-container .sec-wrap')];
+    if (visibleWraps.length) {
+      const lastHr = visibleWraps[visibleWraps.length - 1].querySelector('.doc-hr');
+      if (lastHr) lastHr.remove();
+    }
+
     clone.querySelectorAll('script').forEach(s => s.remove());
 
     const html = '<!DOCTYPE html>\n' + clone.outerHTML;
